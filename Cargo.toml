@@ -1,0 +1,17 @@
+[package]
+name = "ddnsclient"
+version = "0.1.0"
+authors = ["Alin Cota <alincota@users.noreply.github.com>"]
+edition = "2018"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+exitcode = "1.1.2"
+clap = "~2.33.0"
+log = "~0.4.0"
+simple_logger = "~1.6.0"
+reqwest = { version = "~0.10.4", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
