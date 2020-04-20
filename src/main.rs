@@ -122,6 +122,22 @@ mod mythic_beasts {
     }
 
     // todo: add structures for different responses/objects such as zones, record types and so on.
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Record {
+        pub host: String,
+        pub ttl: u32,
+        pub r#type: String,
+        pub data: String,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct MxRecord {
+        #[serde(flatten)]
+        pub record: Record,
+        pub mx_priority: u32,
+
+        // todo: check https://serde.rs/attr-flatten.html (capture additional fields) for an alternative approach to the MX record type
+    }
 
     pub fn dynamic_dns(host: &str, username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
         let endpoint = format!("{}/dynamic/{}", API_URL, host);
