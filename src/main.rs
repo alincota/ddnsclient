@@ -5,18 +5,18 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
-// use std::error::Error;
-// use std::net::IpAddr; // used for get_my_public_ip()
-// use std::str::FromStr; // used for get_my_public_ip()
+use std::error::Error; // used for get_my_public_ip()
+use std::net::IpAddr; // used for get_my_public_ip()
+use std::str::FromStr; // used for get_my_public_ip()
 use std::process;
 
-use clap::{Arg, App, SubCommand, crate_version, crate_authors};
+use clap::{Arg, App, SubCommand};
 
 
 fn main() {
     let app = App::new("DDNS Client")
-        .version(crate_version!())
-        .author(crate_authors!())
+        .version(clap::crate_version!())
+        .author(clap::crate_authors!())
         .after_help("SUPPORTED PROVIDERS:\n - Mythic Beasts (https://www.mythic-beasts.com/support/api/dnsv2)")
         .arg(Arg::with_name("verbosity")
             .short("v")
@@ -24,20 +24,7 @@ fn main() {
             .multiple(true)
             .help("Set the level of verbosity for logging. Use -v for errors up to -vvvv for more detailed information."))
 
-        .arg(Arg::with_name("zone")
-            .long("zone")
-            // .required(true)
-            .takes_value(true)
-            .number_of_values(1)
-            .help("The name of the zone")
-        )
-        .arg(Arg::with_name("host")
-            .long("host")
-            // .required(true)
-            .takes_value(true)
-            .number_of_values(1)
-            .help("The hostname to create or update. This can be either the hostname within the zone (e.g. www) or a fully-qualified host name (e.g. www.example.com)")
-        )
+        // todo: replace username and pass with the config file (yaml)
         .arg(Arg::with_name("username")
             .short("u")
             .long("username")
@@ -66,9 +53,26 @@ fn main() {
         // .subcommand(SubCommand::with_name("")
         // )
 
+        .arg(Arg::with_name("zone")
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The name of the zone")
+        )
+        .arg(Arg::with_name("host")
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The hostname. This can be either the hostname within the zone (e.g. www) or a fully-qualified host name (e.g. www.example.com)")
+        )
+        .arg(Arg::with_name("type")
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The record type")
+        )
+
         .get_matches();
 
 
+    // Set up logging
     let log_level = match app.occurrences_of("verbosity") {
             0 => log::Level::Error,
             1 => log::Level::Warn,
@@ -86,9 +90,6 @@ fn main() {
     // }
     /* let ip = ip.unwrap(); */
 
-    // let zone = app.value_of("zone").unwrap();
-    // let host = app.value_of("host").unwrap();
-
     // todo: Read external config file so we can set credentials based on future providers
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
@@ -104,14 +105,36 @@ fn main() {
 
             return ();
         },
+        ("update", Some(_u)) => {
+            unimplemented!("Update command missing implementation");
+        },
+        ("delete", Some(_d)) => {
+            unimplemented!("Delete command missing implementation");
+        },
         _ => (),
     }
+
+    let api_endpoint = mythic_beasts::build_api_endpoint(&app);
+    log::error!("endpoint is '{}'", api_endpoint);
+
+    if let Err(e) = mythic_beasts::search(api_endpoint, username, password) {
+        log::error!("{}", e);
+        process::exit(exitcode::UNAVAILABLE);
+    }
 }
+
+
+
+
+
+
+
 
 mod mythic_beasts {
     use std::error::Error;
     // use std::net::IpAddr; // used for get_my_public_ip()
     use serde::{Serialize, Deserialize};
+    use clap::{ArgMatches};
 
     const API_URL: &str = "https://api.mythic-beasts.com/beta/dns";
 
@@ -119,6 +142,7 @@ mod mythic_beasts {
     pub struct ApiResponse {
         pub error: Option<String>,
         pub message: Option<String>,
+        pub records: Vec<Record>,
     }
 
     // todo: add structures for different responses/objects such as zones, record types and so on.
@@ -160,6 +184,51 @@ mod mythic_beasts {
         Ok(())
     }
 
+    pub fn build_api_endpoint(app: &ArgMatches) -> String {
+        let mut endpoint = format!("{}/zones", API_URL);
+
+        if app.is_present("zone") {
+            let zone = app.value_of("zone").unwrap();
+            endpoint.push_str(&format!("/{}", zone));
+        }
+
+        if app.is_present("host") {
+            let host = app.value_of("host").unwrap();
+            endpoint.push_str(&format!("/records/{}", host));
+        }
+
+        if app.is_present("type") {
+            let r#type = app.value_of("type").unwrap();
+            endpoint.push_str(&format!("/{}", r#type));
+        }
+
+        endpoint
+    }
+
+    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
+        let response = reqwest::blocking::Client::new()
+            .get(&url)
+            .basic_auth(username, password)
+            .send()?;
+
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
+
+        let result: ApiResponse = serde_json::from_str(&text)?;
+
+        log::info!("{:#?}", result);
+        unimplemented!("Finish search implementation.");
+        // catch other status responses and handle nicely
+        // return user the information as json
+
+        // if let Some(e) = result.error {
+            // return Err(format!("Unable to use ddns feature. Reason: {}", e).into());
+        // }
+
+        // return list of records
+        // Ok()
+    }
+
     #[allow(dead_code)]
     fn get_record_types(username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
         let endpoint = format!("{}/record-types", API_URL);
@@ -176,26 +245,23 @@ mod mythic_beasts {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn get_zones() -> Result<(), Box<dyn Error>> {
-        Ok(())
-    }
 }
 
 
-/* fn get_my_public_ip() -> Result<IpAddr, Box<dyn Error>> { */
-    // let opendns_ip = reqwest::blocking::get("https://diagnostic.opendns.com/myip")?.text()?;
-    // let ipify_ip = reqwest::blocking::get("https://api6.ipify.org")?.text()?;
+#[allow(dead_code)]
+fn get_my_public_ip() -> Result<IpAddr, Box<dyn Error>> {
+    let opendns_ip = reqwest::blocking::get("https://diagnostic.opendns.com/myip")?.text()?;
+    let ipify_ip = reqwest::blocking::get("https://api6.ipify.org")?.text()?;
 
-    // let opendns_ip = IpAddr::from_str(&opendns_ip)?;
-    // let ipify_ip = IpAddr::from_str(&ipify_ip)?;
+    let opendns_ip = IpAddr::from_str(&opendns_ip)?;
+    let ipify_ip = IpAddr::from_str(&ipify_ip)?;
 
-    // log::debug!("OpenDNS IPAddr: {:?}", opendns_ip);
-    // log::debug!("IPify IP: {:?}", ipify_ip);
+    log::debug!("OpenDNS IPAddr: {:?}", opendns_ip);
+    log::debug!("IPify IP: {:?}", ipify_ip);
 
-    // if opendns_ip != ipify_ip {
-        // return Err("OpenDNS and IPify services responded with different IPs.".into());
-    // }
+    if opendns_ip != ipify_ip {
+        return Err("OpenDNS and IPify services responded with different IPs.".into());
+    }
 
-    // Ok(opendns_ip)
-/* } */
+    Ok(opendns_ip)
+}
