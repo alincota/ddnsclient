@@ -115,11 +115,24 @@ fn main() {
     }
 
     let api_endpoint = mythic_beasts::build_api_endpoint(&app);
-    log::error!("endpoint is '{}'", api_endpoint);
 
-    if let Err(e) = mythic_beasts::search(api_endpoint, username, password) {
-        log::error!("{}", e);
-        process::exit(exitcode::UNAVAILABLE);
+    match mythic_beasts::search(api_endpoint, username, password) {
+        Ok(records) => {
+            match serde_json::to_string(&records) {
+                Ok(s) => {
+                    println!("{}", s);
+                    return ();
+                },
+                Err(e) => {
+                    log::error!("{}", e);
+                    process::exit(exitcode::UNAVAILABLE);
+                }
+            }
+        },
+        Err(e) => {
+            log::error!("{}", e);
+            process::exit(exitcode::UNAVAILABLE);
+        }
     }
 }
 
@@ -145,7 +158,6 @@ mod mythic_beasts {
         pub records: Vec<Record>,
     }
 
-    // todo: add structures for different responses/objects such as zones, record types and so on.
     #[derive(Serialize, Deserialize, Debug)]
     pub struct Record {
         pub host: String,
@@ -189,12 +201,12 @@ mod mythic_beasts {
 
         if app.is_present("zone") {
             let zone = app.value_of("zone").unwrap();
-            endpoint.push_str(&format!("/{}", zone));
+            endpoint.push_str(&format!("/{}/records", zone));
         }
 
         if app.is_present("host") {
             let host = app.value_of("host").unwrap();
-            endpoint.push_str(&format!("/records/{}", host));
+            endpoint.push_str(&format!("/{}", host));
         }
 
         if app.is_present("type") {
@@ -205,7 +217,7 @@ mod mythic_beasts {
         endpoint
     }
 
-    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
+    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<Vec<Record>, Box<dyn Error>> {
         let response = reqwest::blocking::Client::new()
             .get(&url)
             .basic_auth(username, password)
@@ -216,8 +228,8 @@ mod mythic_beasts {
 
         let result: ApiResponse = serde_json::from_str(&text)?;
 
-        log::info!("{:#?}", result);
-        unimplemented!("Finish search implementation.");
+        log::trace!("{:#?}", result);
+
         // catch other status responses and handle nicely
         // return user the information as json
 
@@ -225,8 +237,7 @@ mod mythic_beasts {
             // return Err(format!("Unable to use ddns feature. Reason: {}", e).into());
         // }
 
-        // return list of records
-        // Ok()
+        Ok(result.records)
     }
 
     #[allow(dead_code)]
