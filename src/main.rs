@@ -23,6 +23,24 @@ fn main() {
             .global(true)
             .multiple(true)
             .help("Set the level of verbosity for logging. Use -v for errors up to -vvvv for more detailed information."))
+        .arg(Arg::with_name("zone")
+            .global(true)
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The name of the zone")
+        )
+        .arg(Arg::with_name("host")
+            .global(true)
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The hostname. This can be either the hostname within the zone (e.g. www) or a fully-qualified host name (e.g. www.example.com). Use @ to return records for the bare domain (apex).")
+        )
+        .arg(Arg::with_name("type")
+            .global(true)
+            .takes_value(true)
+            .number_of_values(1)
+            .help("The record type")
+        )
 
         // todo: replace username and pass with the config file (yaml)
         .arg(Arg::with_name("username")
@@ -43,7 +61,7 @@ fn main() {
 
         .subcommand(SubCommand::with_name("ddns")
             .about("Create or update an A or AAAA record with the specified hostname, with the data set to the IP address of the client using the API.")
-            .arg(Arg::with_name("host")
+            .arg(Arg::with_name("hostname")
                 .required(true)
                 .takes_value(true)
                 .value_name("HOSTNAME")
@@ -53,21 +71,6 @@ fn main() {
         // .subcommand(SubCommand::with_name("")
         // )
 
-        .arg(Arg::with_name("zone")
-            .takes_value(true)
-            .number_of_values(1)
-            .help("The name of the zone")
-        )
-        .arg(Arg::with_name("host")
-            .takes_value(true)
-            .number_of_values(1)
-            .help("The hostname. This can be either the hostname within the zone (e.g. www) or a fully-qualified host name (e.g. www.example.com)")
-        )
-        .arg(Arg::with_name("type")
-            .takes_value(true)
-            .number_of_values(1)
-            .help("The record type")
-        )
 
         .get_matches();
 
@@ -96,7 +99,7 @@ fn main() {
 
     match app.subcommand() {
         ("ddns", Some(ddns)) => {
-            let host = ddns.value_of("host").unwrap();
+            let host = ddns.value_of("hostname").unwrap();
 
             if let Err(e) = mythic_beasts::dynamic_dns(host, username, password) {
                 log::error!("{}", e);
@@ -118,7 +121,8 @@ fn main() {
 
     match mythic_beasts::search(api_endpoint, username, password) {
         Ok(records) => {
-            match serde_json::to_string(&records) {
+            // todo: once happy with tests, change to to_string()
+            match serde_json::to_string_pretty(&records) {
                 Ok(s) => {
                     println!("{}", s);
                     return ();
@@ -155,7 +159,7 @@ mod mythic_beasts {
     pub struct ApiResponse {
         pub error: Option<String>,
         pub message: Option<String>,
-        pub records: Vec<Record>,
+        pub records: Option<Vec<Record>>,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -164,16 +168,37 @@ mod mythic_beasts {
         pub ttl: u32,
         pub r#type: String,
         pub data: String,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub mx_priority: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub srv_priority: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub srv_weight: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub srv_port: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub sshfp_algorithm: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub sshfp_type: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub caa_flags: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub caa_property: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tlsa_usage: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tlsa_selector: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tlsa_matching: Option<u32>,
+
+        // #[serde(flatten)]
+        // pub extra: std::collections::HashMap<String, serde_json::Value>,
+
+        #[serde(skip)]
+        pub _template: Option<bool>,
     }
 
-    #[derive(Serialize, Deserialize)]
-    pub struct MxRecord {
-        #[serde(flatten)]
-        pub record: Record,
-        pub mx_priority: u32,
-
-        // todo: check https://serde.rs/attr-flatten.html (capture additional fields) for an alternative approach to the MX record type
-    }
 
     pub fn dynamic_dns(host: &str, username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
         let endpoint = format!("{}/dynamic/{}", API_URL, host);
@@ -217,7 +242,7 @@ mod mythic_beasts {
         endpoint
     }
 
-    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<Vec<Record>, Box<dyn Error>> {
+    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<Option<Vec<Record>>, Box<dyn Error>> {
         let response = reqwest::blocking::Client::new()
             .get(&url)
             .basic_auth(username, password)
@@ -227,15 +252,11 @@ mod mythic_beasts {
         log::trace!("Received response: {}", &text);
 
         let result: ApiResponse = serde_json::from_str(&text)?;
-
         log::trace!("{:#?}", result);
 
-        // catch other status responses and handle nicely
-        // return user the information as json
-
-        // if let Some(e) = result.error {
-            // return Err(format!("Unable to use ddns feature. Reason: {}", e).into());
-        // }
+        if let Some(e) = result.error {
+            return Err(format!("Unable to get search results. Reason: {}", e).into());
+        }
 
         Ok(result.records)
     }
