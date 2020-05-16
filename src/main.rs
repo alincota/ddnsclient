@@ -39,7 +39,7 @@ fn main() {
             .global(true)
             .takes_value(true)
             .number_of_values(1)
-            .help("The record type")
+            .help("The record type (e.g A, AAAA, MX, CNAME, TXT)")
         )
 
         // todo: replace username and pass with the config file (yaml)
@@ -60,6 +60,8 @@ fn main() {
         )
 
         .subcommand(SubCommand::with_name("ddns")
+            .version(clap::crate_version!())
+            .author(clap::crate_authors!())
             .about("Create or update an A or AAAA record with the specified hostname, with the data set to the IP address of the client using the API.")
             .arg(Arg::with_name("hostname")
                 .required(true)
@@ -69,6 +71,8 @@ fn main() {
             )
         )
         .subcommand(SubCommand::with_name("delete")
+            .version(clap::crate_version!())
+            .author(clap::crate_authors!())
             .about("Deletes all records selected by the zone|host|type")
         )
         // .subcommand(SubCommand::with_name("")
@@ -278,6 +282,7 @@ mod mythic_beasts {
     }
 
     pub fn delete(app: &ArgMatches, username: &str, password: Option<&str>) -> Result<u32, Box<dyn Error>> {
+        // todo: filter using exclude-generated
         let url = build_api_endpoint(app);
         let response = reqwest::blocking::Client::new()
             .delete(&url)
