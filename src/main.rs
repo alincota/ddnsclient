@@ -68,6 +68,9 @@ fn main() {
                 .help("The fully-qualified host name")
             )
         )
+        .subcommand(SubCommand::with_name("delete")
+            .about("Deletes all records selected by the zone|host|type")
+        )
         // .subcommand(SubCommand::with_name("")
         // )
 
@@ -97,6 +100,7 @@ fn main() {
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
 
+    // todo: consider catching errors outside of match for  all subcommands
     match app.subcommand() {
         ("ddns", Some(ddns)) => {
             let host = ddns.value_of("hostname").unwrap();
@@ -112,7 +116,16 @@ fn main() {
             unimplemented!("Update command missing implementation");
         },
         ("delete", Some(_d)) => {
-            unimplemented!("Delete command missing implementation");
+            match mythic_beasts::delete(&app, username, password) {
+                Ok(r) => {
+                    println!("Deleted {} record(s)", r);
+                    return ();
+                },
+                Err(e) => {
+                    log::error!("{}", e);
+                    process::exit(exitcode::UNAVAILABLE);
+                },
+            }
         },
         _ => (),
     }
@@ -158,7 +171,10 @@ mod mythic_beasts {
     #[derive(Serialize, Deserialize, Debug)]
     pub struct ApiResponse {
         pub error: Option<String>,
+        pub errors: Option<Vec<String>>,
         pub message: Option<String>,
+        pub records_added: Option<u32>,
+        pub records_removed: Option<u32>,
         pub records: Option<Vec<Record>>,
     }
 
@@ -259,6 +275,39 @@ mod mythic_beasts {
         }
 
         Ok(result.records)
+    }
+
+    pub fn delete(app: &ArgMatches, username: &str, password: Option<&str>) -> Result<u32, Box<dyn Error>> {
+        let url = build_api_endpoint(app);
+        let response = reqwest::blocking::Client::new()
+            .delete(&url)
+            .basic_auth(username, password)
+            .send()?;
+
+        let response_status = response.status();
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
+
+        let result: ApiResponse = serde_json::from_str(&text)?;
+        log::trace!("{:#?}", result);
+
+        if response_status.is_client_error() {
+            if response_status == reqwest::StatusCode::BAD_REQUEST {
+                if let Some(e) = result.errors {
+                    return Err(format!("Unable to delete selected record(s). Reasons: \n - {}", e.join("\n - ")).into());
+                }
+            }
+
+            if let Some(e) = result.error {
+                return Err(format!("Unable to delete selected record(s). Reason: {}", e).into());
+            }
+        }
+
+        if let Some(r) = result.records_removed {
+            return Ok(r);
+        }
+
+        Ok(0)
     }
 
     #[allow(dead_code)]
