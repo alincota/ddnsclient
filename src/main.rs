@@ -9,6 +9,8 @@ use std::error::Error; // used for get_my_public_ip()
 use std::net::IpAddr; // used for get_my_public_ip()
 use std::str::FromStr; // used for get_my_public_ip()
 use std::process;
+use std::io;
+use std::io::prelude::*;
 
 use clap::{Arg, App, SubCommand};
 
@@ -76,10 +78,16 @@ fn main() {
         .subcommand(SubCommand::with_name("delete")
             .about("Deletes all records selected by the zone|host|type")
         )
+        .subcommand(SubCommand::with_name("update")
+            .about("Update all records selected by the zone|host|type")
+            .arg(Arg::with_name("records")
+                .takes_value(true)
+                .number_of_values(1)
+                .help("Records provided as JSON. If not provided, it will read from stdin")
+            )
+        )
         // .subcommand(SubCommand::with_name("")
         // )
-
-
         .get_matches();
 
 
@@ -105,7 +113,7 @@ fn main() {
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
 
-    // todo: consider catching errors outside of match for  all subcommands
+    // todo: catch errors outside of match for  all subcommands
     match app.subcommand() {
         ("ddns", Some(ddns)) => {
             let host = ddns.value_of("hostname").unwrap();
@@ -117,8 +125,23 @@ fn main() {
 
             return ();
         },
-        ("update", Some(_u)) => {
-            unimplemented!("Update command missing implementation");
+        ("update", Some(u)) => {
+            let records: Vec<mythic_beasts::Record> = match u.values_of("records") {
+                Some(rcds) => process_dns_records(rcds.map(|ln| ln.to_string())),
+                None => process_dns_records(io::stdin().lock().lines().map(|ln| ln.unwrap())),
+            };
+
+            match mythic_beasts::update(&records, &u, username, password) {
+                Ok((added, removed)) => {
+                    println!("Updated record(s)!");
+                    println!("Added {} record(s). Removed {} record(s)", added, removed);
+                    return ();
+                },
+                Err(e) => {
+                    log::error!("{}", e);
+                    process::exit(exitcode::UNAVAILABLE);
+                },
+            }
         },
         ("delete", Some(_d)) => {
             match mythic_beasts::delete(&app, username, password) {
@@ -327,22 +350,62 @@ mod mythic_beasts {
         Ok(0)
     }
 
-    #[allow(dead_code)]
-    fn get_record_types(username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
-        let endpoint = format!("{}/record-types", API_URL);
+    pub fn update(records: &Vec<Record>, argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<(u32, u32), Box<dyn Error>> {
+        let mut recs = std::collections::HashMap::new();
+        recs.insert("records", records);
+
+        let url = build_api_endpoint(argm, Some("exclude-generated=true&exclude-template=true"));
         let response = reqwest::blocking::Client::new()
-            .get(&endpoint)
+            .put(&url)
             .basic_auth(username, password)
+            .json(&recs)
             .send()?;
 
+        let response_status = response.status();
         let text = response.text()?;
         log::trace!("Received response: {}", &text);
 
-        // Received response: {"A":["host","ttl","type","data"],"AAAA":["host","ttl","type","data"],"ANAME":["host","ttl","type","data"],"CAA":["host","ttl","type","caa_flags","caa_tag","data"],"CNAME":["host","ttl","type","data"],"DNAME":["host","ttl","type","data"],"MX":["host","ttl","type","mx_priority","data"],"NS":["host","ttl","type","data"],"SRV":["host","ttl","type","host","srv_priority","srv_weight","srv_port","data"],"SSHFP":["host","ttl","type","sshfp_algorithm","sshfp_type","data"],"TLSA":["host","ttl","type","tlsa_usage","tlsa_selector","tlsa_matching","data"],"TXT":["host","ttl","type","data"]}
+        let result: ApiResponse = serde_json::from_str(&text)?;
+        log::trace!("{:#?}", result);
 
-        Ok(())
+        if response_status.is_client_error() {
+            if response_status == reqwest::StatusCode::BAD_REQUEST {
+                if let Some(e) = result.errors {
+                    return Err(format!("Unable to update selected record(s). Reasons: \n - {}", e.join("\n - ")).into());
+                }
+            }
+
+            if let Some(e) = result.error {
+                return Err(format!("Unable to update selected record(s). Reason: {}", e).into());
+            }
+        }
+
+        let records_added: u32 = match result.records_added {
+            Some(n) => n,
+            None => 0,
+        };
+
+        let records_removed: u32 = match result.records_removed {
+            Some(n) => n,
+            None => 0,
+        };
+
+        Ok((records_added, records_removed))
+    }
+}
+
+fn process_dns_records<I>(strings: I) -> Vec<mythic_beasts::Record> where I: IntoIterator<Item = String> + std::fmt::Debug {
+    let mut dns_records: Vec<mythic_beasts::Record> = Vec::new();
+
+    for string in strings {
+        let result: Result<Vec<mythic_beasts::Record>, serde_json::Error> = serde_json::from_str(&string);
+
+        if let Ok(r) = result {
+            dns_records.extend(r);
+        }
     }
 
+    dns_records
 }
 
 
