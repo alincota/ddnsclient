@@ -58,10 +58,13 @@ fn main() {
             .number_of_values(1)
             .help("Authentication password")
         )
+        .arg(Arg::with_name("pretty")
+            .long("pretty")
+            .takes_value(false)
+            .help("Human readable output with pretty format")
+        )
 
         .subcommand(SubCommand::with_name("ddns")
-            .version(clap::crate_version!())
-            .author(clap::crate_authors!())
             .about("Create or update an A or AAAA record with the specified hostname, with the data set to the IP address of the client using the API.")
             .arg(Arg::with_name("hostname")
                 .required(true)
@@ -71,8 +74,6 @@ fn main() {
             )
         )
         .subcommand(SubCommand::with_name("delete")
-            .version(clap::crate_version!())
-            .author(clap::crate_authors!())
             .about("Deletes all records selected by the zone|host|type")
         )
         // .subcommand(SubCommand::with_name("")
@@ -134,12 +135,22 @@ fn main() {
         _ => (),
     }
 
-    let api_endpoint = mythic_beasts::build_api_endpoint(&app);
-
-    match mythic_beasts::search(api_endpoint, username, password) {
+    match mythic_beasts::search(&app, username, password) {
         Ok(records) => {
-            // todo: once happy with tests, change to to_string()
-            match serde_json::to_string_pretty(&records) {
+            if app.is_present("pretty") {
+                match serde_json::to_string_pretty(&records) {
+                    Ok(s) => {
+                        println!("{}", s);
+                        return ();
+                    },
+                    Err(e) => {
+                        log::error!("{}", e);
+                        process::exit(exitcode::UNAVAILABLE);
+                    }
+                }
+            }
+
+            match serde_json::to_string(&records) {
                 Ok(s) => {
                     println!("{}", s);
                     return ();
@@ -212,9 +223,6 @@ mod mythic_beasts {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub tlsa_matching: Option<u32>,
 
-        // #[serde(flatten)]
-        // pub extra: std::collections::HashMap<String, serde_json::Value>,
-
         #[serde(skip)]
         pub _template: Option<bool>,
     }
@@ -241,7 +249,7 @@ mod mythic_beasts {
         Ok(())
     }
 
-    pub fn build_api_endpoint(app: &ArgMatches) -> String {
+    pub fn build_api_endpoint(app: &ArgMatches, filter: Option<&str>) -> String {
         let mut endpoint = format!("{}/zones", API_URL);
 
         if app.is_present("zone") {
@@ -259,10 +267,15 @@ mod mythic_beasts {
             endpoint.push_str(&format!("/{}", r#type));
         }
 
+        if let Some(f) = filter {
+            endpoint.push_str(&format!("?{}", f));
+        }
+
         endpoint
     }
 
-    pub fn search(url: String, username: &str, password: Option<&str>) -> Result<Option<Vec<Record>>, Box<dyn Error>> {
+    pub fn search(argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<Option<Vec<Record>>, Box<dyn Error>> {
+        let url = build_api_endpoint(argm, None);
         let response = reqwest::blocking::Client::new()
             .get(&url)
             .basic_auth(username, password)
@@ -282,8 +295,7 @@ mod mythic_beasts {
     }
 
     pub fn delete(app: &ArgMatches, username: &str, password: Option<&str>) -> Result<u32, Box<dyn Error>> {
-        // todo: filter using exclude-generated
-        let url = build_api_endpoint(app);
+        let url = build_api_endpoint(app, Some("exclude-generated=true&exclude-template=true"));
         let response = reqwest::blocking::Client::new()
             .delete(&url)
             .basic_auth(username, password)
