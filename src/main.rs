@@ -133,8 +133,8 @@ fn main() {
 
             match mythic_beasts::update(&records, &u, username, password) {
                 Ok((added, removed)) => {
-                    println!("Updated record(s)!");
-                    println!("Added {} record(s). Removed {} record(s)", added, removed);
+                    log::info!("Updated record(s)!");
+                    log::debug!("Added {} record(s). Removed {} record(s)", added, removed);
                     return ();
                 },
                 Err(e) => {
@@ -146,7 +146,7 @@ fn main() {
         ("delete", Some(_d)) => {
             match mythic_beasts::delete(&app, username, password) {
                 Ok(r) => {
-                    println!("Deleted {} record(s)", r);
+                    log::info!("Deleted {} record(s)", r);
                     return ();
                 },
                 Err(e) => {
