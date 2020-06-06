@@ -204,7 +204,7 @@ mod mythic_beasts {
     use serde::{Serialize, Deserialize};
     use clap::{ArgMatches};
 
-    const API_URL: &str = "https://api.mythic-beasts.com/beta/dns";
+    const API_URL: &str = "https://api.mythic-beasts.com/dns/v2";
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct ApiResponse {
