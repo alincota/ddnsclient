@@ -11,6 +11,8 @@ use std::str::FromStr; // used for get_my_public_ip()
 use std::process;
 use std::io;
 use std::io::prelude::*;
+use std::fs;
+use serde::{Serialize, Deserialize};
 
 use clap::{Arg, App, SubCommand};
 
@@ -19,7 +21,7 @@ fn main() {
     let app = App::new("DDNS Client")
         .version(clap::crate_version!())
         .author(clap::crate_authors!())
-        .after_help("SUPPORTED PROVIDERS:\n - Mythic Beasts (https://www.mythic-beasts.com/support/api/dnsv2)")
+        .after_help("SUPPORTED PROVIDERS:\n - Mythic Beasts [mythic-beasts] (https://www.mythic-beasts.com/support/api/dnsv2)")
         .arg(Arg::with_name("verbosity")
             .short("v")
             .global(true)
@@ -59,6 +61,22 @@ fn main() {
             .takes_value(true)
             .number_of_values(1)
             .help("Authentication password")
+        )
+        .arg(Arg::with_name("config-path")
+            .short("c")
+            .long("config")
+            .required(true)
+            .takes_value(true)
+            .number_of_values(1)
+            .help("Path to the YAML configuration file.")
+        )
+        .arg(Arg::with_name("provider")
+            .long("provider")
+            .takes_value(true)
+            .number_of_values(1)
+            .possible_values(&["mythic-beasts"])
+            .default_value("mythic-beasts")
+            .help("Specify DNS provider to use")
         )
         .arg(Arg::with_name("pretty")
             .long("pretty")
@@ -101,6 +119,7 @@ fn main() {
     };
     simple_logger::init_with_level(log_level).expect("Unable to initialise the logger!");
 
+
     // First check the IP of the client
     /* let ip = get_my_public_ip(); */
     // if let Err(e) = ip {
@@ -109,9 +128,41 @@ fn main() {
     // }
     /* let ip = ip.unwrap(); */
 
-    // todo: Read external config file so we can set credentials based on future providers
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
+
+    let config_path = app.value_of("config-path").unwrap();
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Configuration {
+        credentials: Vec<Credential>,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Credential {
+        provider: String,
+        user: String,
+        pass: String,
+        zone: Option<String>,
+        host: Option<String>,
+        r#type: Option<String>,
+    }
+
+    let config_contents = fs::read_to_string(config_path)
+        .expect("Something went wrong reading the file");
+    // println!("With text:\n{}", contents);
+    let config: Configuration = serde_yaml::from_str(&config_contents).unwrap();
+    // println!("{:?}", config);
+
+    let mb_credentials: Vec<Credential> = config
+        .credentials
+        .into_iter()
+        .filter(|cred| cred.provider == "mythic-beasts")
+        .collect();
+    println!("{:?}", mb_credentials);
+
+    let provider = app.value_of("provider").expect("Unable to establish provider to use");
+return ();
+
 
     // todo: catch errors outside of match for  all subcommands
     match app.subcommand() {
