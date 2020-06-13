@@ -1,4 +1,5 @@
 mod config;
+mod providers;
 
 extern crate clap;
 extern crate log;
@@ -6,6 +7,9 @@ extern crate simple_logger;
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
+
+use config::Configuration;
+use providers::*;
 
 use std::error::Error; // used for get_my_public_ip()
 use std::net::IpAddr; // used for get_my_public_ip()
@@ -134,15 +138,14 @@ fn main() {
     let provider = app.value_of("provider").expect("Unable to establish which provider to use");
 
     let config_path = app.value_of("config-path").unwrap();
-    let config = config::Configuration::from_path(config_path);
+    let config = Configuration::from_path(config_path);
 
-    let mb_credentials: Vec<config::Credential> = config
-        .credentials
-        .into_iter()
-        .filter(|cred| cred.provider == provider)
-        .collect();
-    println!("{:#?}", mb_credentials);
-
+    // let provider = Provider::new(provider).from_config(config);
+    let provider = providers::init_provider(provider);
+    println!("{:#?}", get_provider_credentials(&provider, config));
+    // provider.set_credentials(get_provider_credentials(&provider, config));
+    println!("{:#?}", provider);
+    provider.dynamic_dns();
 return ();
 
 

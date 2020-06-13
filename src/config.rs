@@ -2,11 +2,6 @@ use std::fs;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Configuration {
-    pub credentials: Vec<Credential>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct Credential {
     pub provider: String,
     pub user: String,
@@ -14,6 +9,13 @@ pub struct Credential {
     pub zone: Option<String>,
     pub host: Option<String>,
     pub r#type: Option<String>,
+}
+
+pub type Credentials = Vec<Credential>;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Configuration {
+    pub credentials: Credentials,
 }
 
 
