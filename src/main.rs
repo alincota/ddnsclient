@@ -1,3 +1,5 @@
+mod config;
+
 extern crate clap;
 extern crate log;
 extern crate simple_logger;
@@ -11,8 +13,7 @@ use std::str::FromStr; // used for get_my_public_ip()
 use std::process;
 use std::io;
 use std::io::prelude::*;
-use std::fs;
-use serde::{Serialize, Deserialize};
+// use std::fs;
 
 use clap::{Arg, App, SubCommand};
 
@@ -74,7 +75,7 @@ fn main() {
             .long("provider")
             .takes_value(true)
             .number_of_values(1)
-            .possible_values(&["mythic-beasts"])
+            .possible_values(&["mythic-beasts", "noip"])
             .default_value("mythic-beasts")
             .help("Specify DNS provider to use")
         )
@@ -130,37 +131,18 @@ fn main() {
 
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
+    let provider = app.value_of("provider").expect("Unable to establish which provider to use");
 
     let config_path = app.value_of("config-path").unwrap();
+    let config = config::Configuration::from_path(config_path);
 
-    #[derive(Serialize, Deserialize, Debug)]
-    struct Configuration {
-        credentials: Vec<Credential>,
-    }
-    #[derive(Serialize, Deserialize, Debug)]
-    struct Credential {
-        provider: String,
-        user: String,
-        pass: String,
-        zone: Option<String>,
-        host: Option<String>,
-        r#type: Option<String>,
-    }
-
-    let config_contents = fs::read_to_string(config_path)
-        .expect("Something went wrong reading the file");
-    // println!("With text:\n{}", contents);
-    let config: Configuration = serde_yaml::from_str(&config_contents).unwrap();
-    // println!("{:?}", config);
-
-    let mb_credentials: Vec<Credential> = config
+    let mb_credentials: Vec<config::Credential> = config
         .credentials
         .into_iter()
-        .filter(|cred| cred.provider == "mythic-beasts")
+        .filter(|cred| cred.provider == provider)
         .collect();
-    println!("{:?}", mb_credentials);
+    println!("{:#?}", mb_credentials);
 
-    let provider = app.value_of("provider").expect("Unable to establish provider to use");
 return ();
 
 
