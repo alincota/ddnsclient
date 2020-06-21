@@ -124,6 +124,8 @@ fn main() {
     };
     simple_logger::init_with_level(log_level).expect("Unable to initialise the logger!");
 
+    let config_path = app.value_of("config-path").unwrap();
+    let config = Configuration::from_path(config_path);
 
     // First check the IP of the client
     /* let ip = get_my_public_ip(); */
@@ -137,15 +139,11 @@ fn main() {
     let password = app.value_of("password");
     let provider = app.value_of("provider").expect("Unable to establish which provider to use");
 
-    let config_path = app.value_of("config-path").unwrap();
-    let config = Configuration::from_path(config_path);
-
     // let provider = Provider::new(provider).from_config(config);
-    let provider = providers::init_provider(provider);
-    println!("{:#?}", get_provider_credentials(&provider, config));
-    // provider.set_credentials(get_provider_credentials(&provider, config));
+    let mut provider = providers::init_provider(provider);
+    provider.set_credentials(get_provider_credentials(&provider, config));
     println!("{:#?}", provider);
-    provider.dynamic_dns();
+    provider.dynamic_dns("test.codemobsterz.com");
 return ();
 
 

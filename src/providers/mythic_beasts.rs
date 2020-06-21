@@ -1,36 +1,34 @@
-use super::{DnsProvider};
+use super::{Provider};
 use crate::config;
 
 #[derive(Debug)]
-pub struct MythicBeasts<'a> {
-    name: &'a str,
+pub struct MythicBeasts {
+    name: String,
+    API_URL: String,
     credentials: Option<config::Credentials>,
 }
 
-impl<'a> MythicBeasts<'a> {
-    pub fn new() -> MythicBeasts<'a> {
-        MythicBeasts {
-            name: "mythic-beasts",
+impl MythicBeasts {
+    pub fn new() -> Box<dyn Provider> {
+        Box::new(MythicBeasts {
+            API_URL: String::from("https://api.mythic-beasts.com/dns/v2"),
+            name: String::from("mythic-beasts"),
             credentials: None,
-        }
+        })
     }
 }
 
-impl<'p> DnsProvider<'p> for MythicBeasts<'p> {
-    const API_URL: &'static str = "https://api.mythic-beasts.com/dns/v2";
 
-    fn get_name(&self) -> &'p str {
-        self.name
+impl Provider for MythicBeasts {
+    fn get_name(&self) -> String {
+        self.name.clone()
     }
 
-    // fn set_credentials<'a, C: DnsProvider<'a> + std::fmt::Debug>(&self, creds: config::Credentials) -> C {
-        // MythicBeasts {
-            // name: self.name,
-            // credentials: Some(creds),
-        // }
-    // }
+    fn set_credentials(&mut self, c: config::Credentials) {
+        self.credentials = Some(c);
+    }
 
-    fn dynamic_dns(&self) {
-        println!("DNSProvider trait...ddns to {}", MythicBeasts::API_URL);
+    fn dynamic_dns(&self, host: &str) {
+        println!("Provider trait...ddns to {}", self.API_URL);
     }
 }

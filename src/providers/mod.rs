@@ -16,14 +16,15 @@ use crate::config;
     // }
 // }
 
-pub fn init_provider(name: &str) -> (impl DnsProvider + std::fmt::Debug) {
+
+pub fn init_provider(name: &str) -> Box<dyn Provider> {
     match name {
         "mythic-beasts" => mythic_beasts::MythicBeasts::new(),
         _ => unimplemented!(),
     }
 }
 
-pub fn get_provider_credentials<'a, P: DnsProvider<'a>>(provider: &'a P, c: config::Configuration) -> config::Credentials {
+pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configuration) -> config::Credentials {
     let creds: config::Credentials = c
     .credentials
     .into_iter()
@@ -33,12 +34,10 @@ pub fn get_provider_credentials<'a, P: DnsProvider<'a>>(provider: &'a P, c: conf
     creds
 }
 
-pub trait DnsProvider<'p> {
-    const API_URL: &'static str;
-
-    fn get_name(&self) -> &'p str;
-    // fn set_credentials<'a, P: DnsProvider<'a> + std::fmt::Debug>(&self, creds: config::Credentials) -> P;
-    fn dynamic_dns(&self);
+pub trait Provider: std::fmt::Debug {
+    fn get_name(&self) -> String;
+    fn set_credentials(&mut self, c: config::Credentials);
+    fn dynamic_dns(&self, hostname: &str);
     // fn search();
     // fn update();
     // fn delete();

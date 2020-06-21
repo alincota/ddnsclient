@@ -24,8 +24,7 @@ impl Configuration {
     // }
 
     pub fn from_path(path: &str) -> Configuration {
-        let config_contents = fs::read_to_string(path)
-            .expect("Unable to read config file!");
+        let config_contents = fs::read_to_string(path).expect("Unable to read config file!");
         let config: Configuration = serde_yaml::from_str(&config_contents).unwrap();
 
         config
