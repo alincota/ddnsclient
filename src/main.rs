@@ -91,12 +91,12 @@ fn main() {
 
         .subcommand(SubCommand::with_name("ddns")
             .about("Create or update an A or AAAA record with the specified hostname, with the data set to the IP address of the client using the API.")
-            .arg(Arg::with_name("hostname")
-                .required(true)
-                .takes_value(true)
-                .value_name("HOSTNAME")
-                .help("The fully-qualified host name")
-            )
+            // .arg(Arg::with_name("hostname")
+                // .required(true)
+                // .takes_value(true)
+                // .value_name("HOSTNAME")
+                // .help("The fully-qualified host name")
+            // )
         )
         .subcommand(SubCommand::with_name("delete")
             .about("Deletes all records selected by the zone|host|type")
@@ -143,7 +143,7 @@ fn main() {
     let mut provider = providers::init_provider(provider);
     provider.set_credentials(get_provider_credentials(&provider, config));
     println!("{:#?}", provider);
-    provider.dynamic_dns("test.codemobsterz.com");
+    provider.dynamic_dns(Some("codemobsterz.com".to_string()), Some("test".to_string())).expect("dynamic_dns for provider failed!");
 return ();
 
 
