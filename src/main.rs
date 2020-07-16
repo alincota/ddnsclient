@@ -142,8 +142,12 @@ fn main() {
     // let provider = Provider::new(provider).from_config(config);
     let mut provider = providers::init_provider(provider);
     provider.set_credentials(get_provider_credentials(&provider, config));
-    println!("{:#?}", provider);
-    provider.dynamic_dns(Some("codemobsterz.com".to_string()), Some("test".to_string())).expect("dynamic_dns for provider failed!");
+    // println!("{:#?}", provider);
+
+    match app.subcommand() {
+        ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
+        _ => (),
+    }
 return ();
 
 

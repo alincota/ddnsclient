@@ -1,7 +1,7 @@
 use std::fs;
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Credential {
     pub provider: String,
     pub user: String,

@@ -2,8 +2,9 @@ mod mythic_beasts;
 
 use crate::config;
 
-use std::error::Error;
+// use std::error::Error;
 use serde::{Serialize, Deserialize};
+use clap::{ArgMatches};
 
 // impl Provider {
     // pub fn from_config(&self, c: config::Configuration) -> Provider {
@@ -76,8 +77,8 @@ pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configu
 pub trait Provider: std::fmt::Debug {
     fn get_name(&self) -> String;
     fn set_credentials(&mut self, c: config::Credentials);
-    fn get_credential(&self, zone: String, host: Option<String>, r#type: Option<String>) -> Result<(&str, Option<&str>), Box<dyn Error>>;
-    fn dynamic_dns(&self, zone: Option<String>, host: Option<String>) -> Result<(), Box<dyn Error>>;
+    // fn get_credential(&self, zone: String, host: Option<String>, r#type: Option<String>) -> Result<(&str, Option<&str>), Box<dyn Error>>;
+    fn dynamic_dns(&self, argm: &ArgMatches);
     // fn search();
     // fn update();
     // fn delete();

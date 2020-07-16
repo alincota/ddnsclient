@@ -31,6 +31,46 @@ impl MythicBeasts {
             credentials: None,
         })
     }
+
+    fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<(&str, Option<&str>), Box<dyn Error>> {
+        let credential_filter = |c: &&config::Credential| -> bool {
+            let host_check = {
+                if host.is_some() {
+                    c.host == Some(host.unwrap().to_string())
+                }
+                else {
+                    c.host == None
+                }
+            };
+
+            let rtype_check = {
+                if r#type.is_some() {
+                    c.r#type == Some(r#type.unwrap().to_string())
+                }
+                else {
+                    c.r#type == None
+                }
+            };
+
+            c.zone == Some(zone.to_string()) && host_check && rtype_check
+        };
+
+        let credential: config::Credentials = self.credentials.as_ref().unwrap()
+            .iter()
+            .filter(credential_filter)
+            // .inspect(|i| println!("item that passed the filter: {:?}", i))
+            .cloned()
+            .collect();
+
+        println!("credential: {:?}", credential);
+
+        if credential.is_empty() {
+            // TODO: implement own Provider errors (have a look at std::num::ParseIntError
+            // return Err(ProviderError);
+        }
+
+        Ok(("username...", Some("password...")))
+    }
 }
 
 
@@ -43,15 +83,28 @@ impl Provider for MythicBeasts {
         self.credentials = Some(c);
     }
 
-    fn get_credential(&self, zone: String, host: Option<String>, r#type: Option<String>) -> Result<(&str, Option<&str>), Box<dyn Error>> {
-        // filter credentials based on zone and host
-        Ok(("username...", Some("password...")))
-    }
+    fn dynamic_dns(&self, argm: &ArgMatches) {
+        if !argm.is_present("zone") {
+            log::error!("Zone missing for DDNS!");
+            return ();
+        }
 
-    fn dynamic_dns(&self, zone: Option<String>, host: Option<String>) -> Result<(), Box<dyn Error>> {
-        let endpoint = format!("{}/zones/{}/dynamic/{}", API_URL, zone.unwrap(), host.unwrap());
-        // let (username, password) = self.get_credential(zone.unwrap(), host, None);
-        // let credential: (String, String) = match self.get_credential(zone.unwrap(), host, None) {}
+        if !argm.is_present("host") {
+            log::error!("Host missing for DDNS!");
+            return ();
+        }
+
+        let zone = argm.value_of("zone").unwrap();
+        let host = argm.value_of("host").unwrap();
+        let endpoint = format!("{}/zones/{}/dynamic/{}", API_URL, zone, host);
+
+        let credentials = self.get_credential(zone, Some(host), None);
+        if let Err(e) = credentials {
+            log::error!("Failed to get credentials. Reason: {}", e);
+            return ();
+        }
+
+        println!("credentials: {:?}", credentials);
 
         // let response = reqwest::blocking::Client::new()
             // .put(&endpoint)
@@ -69,6 +122,6 @@ impl Provider for MythicBeasts {
 
         // log::info!("{}", result.message.unwrap());
 
-        Ok(())
+        ();
     }
 }
