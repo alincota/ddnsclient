@@ -1,7 +1,6 @@
-use super::{Provider, Record};
+use super::{Provider, Record, ProviderError, ProviderErrorKind, Result};
 use crate::config;
 
-use std::error::Error;
 use serde::{Serialize, Deserialize};
 use clap::{ArgMatches};
 
@@ -32,7 +31,7 @@ impl MythicBeasts {
         })
     }
 
-    fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<(&str, Option<&str>), Box<dyn Error>> {
+    fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<config::Credentials> {
         let credential_filter = |c: &&config::Credential| -> bool {
             let host_check = {
                 if host.is_some() {
@@ -62,14 +61,11 @@ impl MythicBeasts {
             .cloned()
             .collect();
 
-        println!("credential: {:?}", credential);
-
         if credential.is_empty() {
-            // TODO: implement own Provider errors (have a look at std::num::ParseIntError
-            // return Err(ProviderError);
+            return Err(ProviderError::new(ProviderErrorKind::CredentialNotFound));
         }
 
-        Ok(("username...", Some("password...")))
+        Ok(credential)
     }
 }
 

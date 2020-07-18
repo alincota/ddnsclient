@@ -2,7 +2,7 @@ mod mythic_beasts;
 
 use crate::config;
 
-// use std::error::Error;
+use std::fmt;
 use serde::{Serialize, Deserialize};
 use clap::{ArgMatches};
 
@@ -85,3 +85,58 @@ pub trait Provider: std::fmt::Debug {
 }
 
 
+
+/// An error which can be returned when working with a DNS provider feature/capability.
+///
+/// This error is used as the error type for all trait object functions as well as on any of
+/// the helper functions.
+#[derive(Debug, Clone)]
+struct ProviderError {
+    kind: ProviderErrorKind,
+    // TODO; consider converting this into a &str as we should know all error messages sizes
+    message: Option<String>,
+}
+
+/// Enum to store various types of errors that can cause the application to fail.
+#[derive(Debug, Clone)]
+enum ProviderErrorKind {
+    NotFound,
+    CredentialNotFound,
+}
+
+type Result<T> = std::result::Result<T, ProviderError>;
+
+impl ProviderError {
+    fn new(kind: ProviderErrorKind) -> Self {
+        ProviderError {
+            kind,
+            message: None,
+        }
+    }
+
+    /// Add (optionally) a different error message
+    /// * `msg` - New message string
+    fn msg(mut self, msg: String) -> Self {
+        self.message = Some(msg);
+        self
+    }
+
+    #[doc(hidden)]
+    fn __get_default_message(&self) -> String {
+        match self.kind {
+            ProviderErrorKind::NotFound => String::from("Unable to find entity!"),
+            ProviderErrorKind::CredentialNotFound => String::from("Unable to find credential!"),
+        }
+    }
+}
+
+impl fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match &self.message {
+            None => self.__get_default_message(),
+            Some(m) => m.to_string(),
+        };
+
+        write!(f, "{}", msg)
+    }
+}
