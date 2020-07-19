@@ -33,22 +33,14 @@ impl MythicBeasts {
 
     fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<config::Credential> {
         let credential_filter = |c: &&config::Credential| -> bool {
-            let host_check = {
-                if host.is_some() {
-                    c.host == Some(host.unwrap().to_string())
-                }
-                else {
-                    c.host == None
-                }
+            let host_check = match host {
+                None => c.host == None,
+                Some(h) => c.host == Some(h.to_string()),
             };
 
-            let rtype_check = {
-                if r#type.is_some() {
-                    c.r#type == Some(r#type.unwrap().to_string())
-                }
-                else {
-                    c.r#type == None
-                }
+            let rtype_check = match r#type {
+                None => c.r#type == None,
+                Some(rtype) => c.r#type == Some(rtype.to_string()),
             };
 
             c.zone == Some(zone.to_string()) && host_check && rtype_check
