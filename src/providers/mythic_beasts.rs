@@ -71,32 +71,26 @@ impl Provider for MythicBeasts {
         self.credentials = Some(c);
     }
 
-    fn dynamic_dns(&self, argm: &ArgMatches) {
+    fn dynamic_dns(&self, argm: &ArgMatches) -> Result<()>{
         if !argm.is_present("zone") {
             log::error!("Zone missing for DDNS!");
-            return ();
+            return Ok(());
         }
 
         if !argm.is_present("host") {
             log::error!("Host missing for DDNS!");
-            return ();
+            return Ok(());
         }
 
         let zone = argm.value_of("zone").unwrap();
         let host = argm.value_of("host").unwrap();
         let endpoint = format!("{}/zones/{}/dynamic/{}", API_URL, zone, host);
 
-        let credentials = self.get_credential(zone, Some(host), None);
-        if let Err(e) = credentials {
-            log::error!("Failed to get credentials. Reason: {}", e);
-            return ();
-        }
-
-        println!("credentials: {:?}", credentials);
+        let credentials = self.get_credential(zone, Some(host), None)?;
 
         // let response = reqwest::blocking::Client::new()
             // .put(&endpoint)
-            // .basic_auth(username, password)
+            // .basic_auth(credentials.user, Some(credentials.pass))
             // .send()?;
 
         // let text = response.text()?;
@@ -110,6 +104,6 @@ impl Provider for MythicBeasts {
 
         // log::info!("{}", result.message.unwrap());
 
-        ();
+        Ok(())
     }
 }

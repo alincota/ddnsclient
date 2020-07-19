@@ -77,8 +77,7 @@ pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configu
 pub trait Provider: fmt::Debug {
     fn get_name(&self) -> String;
     fn set_credentials(&mut self, c: config::Credentials);
-    // fn get_credential(&self, zone: String, host: Option<String>, r#type: Option<String>) -> Result<(&str, Option<&str>), Box<dyn Error>>;
-    fn dynamic_dns(&self, argm: &ArgMatches);
+    fn dynamic_dns(&self, argm: &ArgMatches) -> Result<()>;
     // fn search();
     // fn update();
     // fn delete();
@@ -91,15 +90,15 @@ pub trait Provider: fmt::Debug {
 /// This error is used as the error type for all trait object functions as well as on any of
 /// the helper functions.
 #[derive(Debug, Clone)]
-struct ProviderError {
+pub struct ProviderError {
     kind: ProviderErrorKind,
-    // TODO; consider converting this into a &str as we should know all error messages sizes
+    // TODO: consider converting this into a &str as we should know all error messages sizes
     message: Option<String>,
 }
 
 /// Enum to store various types of errors that can cause the application to fail.
 #[derive(Debug, Clone)]
-enum ProviderErrorKind {
+pub enum ProviderErrorKind {
     NotFound,
     CredentialNotFound,
 }
@@ -107,7 +106,7 @@ enum ProviderErrorKind {
 type Result<T> = std::result::Result<T, ProviderError>;
 
 impl ProviderError {
-    fn new(kind: ProviderErrorKind) -> Self {
+    pub fn new(kind: ProviderErrorKind) -> Self {
         ProviderError {
             kind,
             message: None,

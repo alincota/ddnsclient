@@ -144,14 +144,18 @@ fn main() {
     provider.set_credentials(get_provider_credentials(&provider, config));
     // println!("{:#?}", provider);
 
-    match app.subcommand() {
+    let subcommand = match app.subcommand() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
-        _ => (),
+        _ => Ok(()),
+    };
+
+    if subcommand.is_err() {
+        subcommand.map_err(|e| log::error!("{}", e));
+        process::exit(exitcode::UNAVAILABLE);
     }
-return ();
+    return ();
 
 
-    // todo: catch errors outside of match for  all subcommands
     match app.subcommand() {
         ("ddns", Some(ddns)) => {
             let host = ddns.value_of("hostname").unwrap();
