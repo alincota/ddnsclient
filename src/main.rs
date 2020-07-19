@@ -146,6 +146,8 @@ fn main() {
 
     let subcommand = match app.subcommand() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
+        // ("update", Some(update)) => Ok(println!("update subcommand")),
+        // ("delete", Some(_delete)) => Ok(println!("delete subcommand")),
         _ => Ok(()),
     };
 

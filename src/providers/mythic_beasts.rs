@@ -88,21 +88,22 @@ impl Provider for MythicBeasts {
 
         let credentials = self.get_credential(zone, Some(host), None)?;
 
-        // let response = reqwest::blocking::Client::new()
-            // .put(&endpoint)
-            // .basic_auth(credentials.user, Some(credentials.pass))
-            // .send()?;
+        let response = reqwest::blocking::Client::new()
+            .put(&endpoint)
+            .basic_auth(credentials.user, Some(credentials.pass))
+            .send()?;
 
-        // let text = response.text()?;
-        // log::trace!("Received response: {}", &text);
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
 
-        // let result: ApiResponse = serde_json::from_str(&text)?;
+        let result: ApiResponse = serde_json::from_str(&text)?;
 
-        // if let Some(e) = result.error {
-            // return Err(format!("Unable to use DDNS feature. Reason: {}", e).into());
-        // }
+        if let Some(e) = result.error {
+            return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                .msg(format!("Unable to use DDNS feature. Reason: {}", e)));
+        }
 
-        // log::info!("{}", result.message.unwrap());
+        log::info!("{}", result.message.unwrap());
 
         Ok(())
     }

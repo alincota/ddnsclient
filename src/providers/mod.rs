@@ -3,6 +3,7 @@ mod mythic_beasts;
 use crate::config;
 
 use std::fmt;
+use std::error;
 use serde::{Serialize, Deserialize};
 use clap::{ArgMatches};
 
@@ -89,7 +90,7 @@ pub trait Provider: fmt::Debug {
 ///
 /// This error is used as the error type for all trait object functions as well as on any of
 /// the helper functions.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ProviderError {
     kind: ProviderErrorKind,
     // TODO: consider converting this into a &str as we should know all error messages sizes
@@ -97,10 +98,12 @@ pub struct ProviderError {
 }
 
 /// Enum to store various types of errors that can cause the application to fail.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ProviderErrorKind {
-    NotFound,
     CredentialNotFound,
+    ReqwestFail(reqwest::Error),
+    SerdeJsonError(serde_json::Error),
+    DnsApiError,
 }
 
 type Result<T> = std::result::Result<T, ProviderError>;
@@ -122,9 +125,11 @@ impl ProviderError {
 
     #[doc(hidden)]
     fn __get_default_message(&self) -> String {
-        match self.kind {
-            ProviderErrorKind::NotFound => String::from("Unable to find entity!"),
+        match &self.kind {
             ProviderErrorKind::CredentialNotFound => String::from("Unable to find credential!"),
+            ProviderErrorKind::ReqwestFail(e) => format!("Reqwest: {}", e.to_string()),
+            ProviderErrorKind::SerdeJsonError(e) => format!("Serde-JSON: {}", e.to_string()),
+            ProviderErrorKind::DnsApiError => String::from("Received API error!"),
         }
     }
 }
@@ -137,5 +142,27 @@ impl fmt::Display for ProviderError {
         };
 
         write!(f, "{}", msg)
+    }
+}
+
+impl error::Error for ProviderError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match &self.kind {
+            ProviderErrorKind::ReqwestFail(e) => Some(e),
+            ProviderErrorKind::SerdeJsonError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<reqwest::Error> for ProviderError {
+    fn from(err: reqwest::Error) -> ProviderError {
+        ProviderError::new(ProviderErrorKind::ReqwestFail(err))
+    }
+}
+
+impl From<serde_json::Error> for ProviderError {
+    fn from(err: serde_json::Error) -> ProviderError {
+        ProviderError::new(ProviderErrorKind::SerdeJsonError(err))
     }
 }
