@@ -74,7 +74,7 @@ pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configu
 
 
 
-pub trait Provider: std::fmt::Debug {
+pub trait Provider: fmt::Debug {
     fn get_name(&self) -> String;
     fn set_credentials(&mut self, c: config::Credentials);
     // fn get_credential(&self, zone: String, host: Option<String>, r#type: Option<String>) -> Result<(&str, Option<&str>), Box<dyn Error>>;

@@ -31,7 +31,7 @@ impl MythicBeasts {
         })
     }
 
-    fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<config::Credentials> {
+    fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<config::Credential> {
         let credential_filter = |c: &&config::Credential| -> bool {
             let host_check = {
                 if host.is_some() {
@@ -65,7 +65,7 @@ impl MythicBeasts {
             return Err(ProviderError::new(ProviderErrorKind::CredentialNotFound));
         }
 
-        Ok(credential)
+        Ok(credential[0].clone())
     }
 }
 
