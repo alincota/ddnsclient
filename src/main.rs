@@ -304,39 +304,6 @@ mod mythic_beasts {
         endpoint
     }
 
-    pub fn delete(app: &ArgMatches, username: &str, password: Option<&str>) -> Result<u32, Box<dyn Error>> {
-        let url = build_api_endpoint(app, Some("exclude-generated=true&exclude-template=true"));
-        let response = reqwest::blocking::Client::new()
-            .delete(&url)
-        .basic_auth(username, password)
-        .send()?;
-
-    let response_status = response.status();
-    let text = response.text()?;
-    log::trace!("Received response: {}", &text);
-
-    let result: ApiResponse = serde_json::from_str(&text)?;
-    log::trace!("{:#?}", result);
-
-    if response_status.is_client_error() {
-        if response_status == reqwest::StatusCode::BAD_REQUEST {
-            if let Some(e) = result.errors {
-                return Err(format!("Unable to delete selected record(s). Reasons: \n - {}", e.join("\n - ")).into());
-            }
-        }
-
-        if let Some(e) = result.error {
-            return Err(format!("Unable to delete selected record(s). Reason: {}", e).into());
-        }
-    }
-
-    if let Some(r) = result.records_removed {
-        return Ok(r);
-    }
-
-    Ok(0)
-}
-
     pub fn update(records: &Vec<Record>, argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<(u32, u32), Box<dyn Error>> {
         let mut recs = std::collections::HashMap::new();
         recs.insert("records", records);

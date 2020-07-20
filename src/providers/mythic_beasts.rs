@@ -162,4 +162,44 @@ impl Provider for MythicBeasts {
         Ok(result.records)
     }
 
+    fn delete(&self, argm: &ArgMatches) -> Result<bool> {
+        let url = MythicBeasts::build_api_endpoint(argm, Some("exclude-generated=true&exclude-template=true"));
+        let zone = argm.value_of("zone").expect("Deleting DNS record(s) requires at least a zone to be provided");
+        let host = argm.value_of("host");
+        let rtype = argm.value_of("type");
+        let credentials = self.get_credential(zone, host, rtype)?;
+
+        let response = reqwest::blocking::Client::new()
+            .delete(&url)
+            .basic_auth(credentials.user, Some(credentials.pass))
+            .send()?;
+
+        let response_status = response.status();
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
+
+        let result: ApiResponse = serde_json::from_str(&text)?;
+        log::trace!("{:#?}", result);
+
+        if response_status.is_client_error() {
+            if response_status == reqwest::StatusCode::BAD_REQUEST {
+                if let Some(e) = result.errors {
+                    return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                        .msg(format!("Unable to delete selected record(s). Reasons: \n - {}", e.join("\n - "))));
+                }
+            }
+
+            if let Some(e) = result.error {
+                return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                    .msg(format!("Unable to delete selected record(s). Reason: {}", e)));
+            }
+        }
+
+        if let Some(r) = result.records_removed {
+            log::info!("Deleted {} record(s)", r);
+            return Ok(true);
+        }
+
+        Ok(true)
+    }
 }

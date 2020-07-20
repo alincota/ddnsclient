@@ -81,7 +81,7 @@ pub trait Provider: fmt::Debug {
     fn dynamic_dns(&self, argm: &ArgMatches) -> Result<bool>;
     fn search(&self, argm: &ArgMatches) -> Result<Option<Vec<Record>>>;
     // fn update();
-    // fn delete();
+    fn delete(&self, argm: &ArgMatches) -> Result<bool>;
 }
 
 
