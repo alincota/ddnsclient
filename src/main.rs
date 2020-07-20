@@ -108,8 +108,6 @@ fn main() {
                 .help("Records provided as JSON. If not provided, it will read from stdin")
             )
         )
-        // .subcommand(SubCommand::with_name("")
-        // )
         .get_matches();
 
 
@@ -138,10 +136,8 @@ fn main() {
     let password = app.value_of("password");
     let provider = app.value_of("provider").expect("Unable to establish which provider to use");
 
-    // let provider = Provider::new(provider).from_config(config);
     let mut provider = providers::init_provider(provider);
     provider.set_credentials(get_provider_credentials(&provider, config));
-    // println!("{:#?}", provider);
 
     let subcommand = match app.subcommand() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
