@@ -78,9 +78,17 @@ pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configu
 pub trait Provider: fmt::Debug {
     fn get_name(&self) -> String;
     fn set_credentials(&mut self, c: config::Credentials);
+
+    /// Dynamic DNS capability
     fn dynamic_dns(&self, argm: &ArgMatches) -> Result<bool>;
+
+    /// Search for DNS record(s) via the API
     fn search(&self, argm: &ArgMatches) -> Result<Option<Vec<Record>>>;
-    // fn update();
+
+    /// Update DNS record(s)
+    fn update(&self, argm: &ArgMatches, records: &Vec<Record>) -> Result<bool>;
+
+    /// Delete DNS record(s)
     fn delete(&self, argm: &ArgMatches) -> Result<bool>;
 }
 

@@ -7,7 +7,7 @@ use clap::{ArgMatches};
 const API_URL: &str = "https://api.mythic-beasts.com/dns/v2";
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ApiResponse {
+struct ApiResponse {
     pub error: Option<String>,
     pub errors: Option<Vec<String>>,
     pub message: Option<String>,
@@ -16,12 +16,12 @@ pub struct ApiResponse {
     pub records: Option<Vec<Record>>,
 }
 
-
 #[derive(Debug)]
 pub struct MythicBeasts {
     name: String,
     credentials: Option<config::Credentials>,
 }
+
 
 impl MythicBeasts {
     pub fn new() -> Box<dyn Provider> {
@@ -199,6 +199,60 @@ impl Provider for MythicBeasts {
             log::info!("Deleted {} record(s)", r);
             return Ok(true);
         }
+
+        Ok(true)
+    }
+
+    fn update(&self, argm: &ArgMatches, records: &Vec<Record>) -> Result<bool> {
+        let mut recs = std::collections::HashMap::new();
+        recs.insert("records", records);
+
+        let url = MythicBeasts::build_api_endpoint(argm, Some("exclude-generated=true&exclude-template=true"));
+
+        let zone = argm.value_of("zone").expect("Updating DNS record(s) requires at least the zone to be specified!");
+        let host = argm.value_of("host");
+        let rtype = argm.value_of("type");
+        let credentials = self.get_credential(zone, host, rtype)?;
+
+        let response = reqwest::blocking::Client::new()
+            .put(&url)
+            .basic_auth(credentials.user, Some(credentials.pass))
+            .json(&recs)
+            .send()?;
+
+        let response_status = response.status();
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
+
+        let result: ApiResponse = serde_json::from_str(&text)?;
+        log::trace!("{:#?}", result);
+
+        if response_status.is_client_error() {
+            if response_status == reqwest::StatusCode::BAD_REQUEST {
+                if let Some(e) = result.errors {
+                    return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                        .msg(format!("Unable to update selected record(s). Reasons: \n - {}", e.join("\n - "))));
+                }
+            }
+
+            if let Some(e) = result.error {
+                return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                    .msg(format!("Unable to update selected record(s). Reason: {}", e)));
+            }
+        }
+
+        let records_added: u32 = match result.records_added {
+            Some(n) => n,
+            None => 0,
+        };
+
+        let records_removed: u32 = match result.records_removed {
+            Some(n) => n,
+            None => 0,
+        };
+
+        log::info!("Updated record(s)!");
+        log::debug!("Added {} record(s). Removed {} record(s)", records_added, records_removed);
 
         Ok(true)
     }

@@ -141,8 +141,15 @@ fn main() {
 
     let subcommand = match app.subcommand() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
-        // ("update", Some(update)) => Ok(println!("update subcommand")),
-        ("delete", Some(delete)) => provider.delete(delete),
+        ("update", Some(upd)) => {
+            let records: Vec<providers::Record> = match upd.values_of("records") {
+                Some(rcds) => process_dns_records(rcds.map(|ln| ln.to_string())),
+                None => process_dns_records(io::stdin().lock().lines().map(|ln| ln.unwrap())),
+            };
+
+            provider.update(upd, &records)
+        },
+        ("delete", Some(del)) => provider.delete(del),
         _ => Ok(false),
     };
 
@@ -189,36 +196,7 @@ fn main() {
             process::exit(exitcode::UNAVAILABLE);
         },
     }
-    return ();
-
-
-    match app.subcommand() {
-        ("update", Some(u)) => {
-            let records: Vec<mythic_beasts::Record> = match u.values_of("records") {
-                Some(rcds) => process_dns_records(rcds.map(|ln| ln.to_string())),
-                None => process_dns_records(io::stdin().lock().lines().map(|ln| ln.unwrap())),
-            };
-
-            match mythic_beasts::update(&records, &u, username, password) {
-                Ok((added, removed)) => {
-                    log::info!("Updated record(s)!");
-                    log::debug!("Added {} record(s). Removed {} record(s)", added, removed);
-                    return ();
-                },
-                Err(e) => {
-                    log::error!("{}", e);
-                    process::exit(exitcode::UNAVAILABLE);
-                },
-            }
-        },
-        _ => (),
-    }
 }
-
-
-
-
-
 
 
 
@@ -299,56 +277,13 @@ mod mythic_beasts {
 
         endpoint
     }
-
-    pub fn update(records: &Vec<Record>, argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<(u32, u32), Box<dyn Error>> {
-        let mut recs = std::collections::HashMap::new();
-        recs.insert("records", records);
-
-        let url = build_api_endpoint(argm, Some("exclude-generated=true&exclude-template=true"));
-        let response = reqwest::blocking::Client::new()
-            .put(&url)
-            .basic_auth(username, password)
-            .json(&recs)
-            .send()?;
-
-        let response_status = response.status();
-        let text = response.text()?;
-        log::trace!("Received response: {}", &text);
-
-        let result: ApiResponse = serde_json::from_str(&text)?;
-        log::trace!("{:#?}", result);
-
-        if response_status.is_client_error() {
-            if response_status == reqwest::StatusCode::BAD_REQUEST {
-                if let Some(e) = result.errors {
-                    return Err(format!("Unable to update selected record(s). Reasons: \n - {}", e.join("\n - ")).into());
-                }
-            }
-
-            if let Some(e) = result.error {
-                return Err(format!("Unable to update selected record(s). Reason: {}", e).into());
-            }
-        }
-
-        let records_added: u32 = match result.records_added {
-            Some(n) => n,
-            None => 0,
-        };
-
-        let records_removed: u32 = match result.records_removed {
-            Some(n) => n,
-            None => 0,
-        };
-
-        Ok((records_added, records_removed))
-    }
 }
 
-fn process_dns_records<I>(strings: I) -> Vec<mythic_beasts::Record> where I: IntoIterator<Item = String> + std::fmt::Debug {
-    let mut dns_records: Vec<mythic_beasts::Record> = Vec::new();
+fn process_dns_records<I>(strings: I) -> Vec<providers::Record> where I: IntoIterator<Item = String> + std::fmt::Debug {
+    let mut dns_records: Vec<providers::Record> = Vec::new();
 
     for string in strings {
-        let result: Result<Vec<mythic_beasts::Record>, serde_json::Error> = serde_json::from_str(&string);
+        let result: Result<Vec<providers::Record>, serde_json::Error> = serde_json::from_str(&string);
 
         if let Ok(r) = result {
             dns_records.extend(r);
