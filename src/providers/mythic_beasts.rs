@@ -71,15 +71,17 @@ impl Provider for MythicBeasts {
         self.credentials = Some(c);
     }
 
-    fn dynamic_dns(&self, argm: &ArgMatches) -> Result<()>{
+    // TODO: support subdomain.domain.tld format as well. CHG config to allow credentials to
+    // map to FQDNs (this will help support NoIP that uses FQDN instead of zones and hosts)
+    fn dynamic_dns(&self, argm: &ArgMatches) -> Result<bool>{
         if !argm.is_present("zone") {
             log::error!("Zone missing for DDNS!");
-            return Ok(());
+            return Ok(true);
         }
 
         if !argm.is_present("host") {
             log::error!("Host missing for DDNS!");
-            return Ok(());
+            return Ok(true);
         }
 
         let zone = argm.value_of("zone").unwrap();
@@ -105,6 +107,26 @@ impl Provider for MythicBeasts {
 
         log::info!("{}", result.message.unwrap());
 
-        Ok(())
+        Ok(true)
     }
+
+    // pub fn search(argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<Option<Vec<Record>> {
+        // let url = build_api_endpoint(argm, None);
+        // let response = reqwest::blocking::Client::new()
+            // .get(&url)
+            // .basic_auth(username, password)
+            // .send()?;
+
+        // let text = response.text()?;
+        // log::trace!("Received response: {}", &text);
+
+        // let result: ApiResponse = serde_json::from_str(&text)?;
+        // log::trace!("{:#?}", result);
+
+        // if let Some(e) = result.error {
+            // return Err(format!("Unable to get search results. Reason: {}", e).into());
+        // }
+
+        // Ok(result.records)
+    // }
 }

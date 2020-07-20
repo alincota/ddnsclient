@@ -148,27 +148,26 @@ fn main() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
         // ("update", Some(update)) => Ok(println!("update subcommand")),
         // ("delete", Some(_delete)) => Ok(println!("delete subcommand")),
-        _ => Ok(()),
+        _ => Ok(false),
     };
 
-    if subcommand.is_err() {
-        subcommand.map_err(|e| log::error!("{}", e));
-        process::exit(exitcode::UNAVAILABLE);
+    match subcommand {
+        Ok(subcmd_ran) => {
+            if subcmd_ran {
+                return ();
+            }
+            println!("search now...");
+        },
+        Err(e) => {
+            log::error!("{}", e);
+            process::exit(exitcode::UNAVAILABLE);
+        },
     }
+
     return ();
 
 
     match app.subcommand() {
-        ("ddns", Some(ddns)) => {
-            let host = ddns.value_of("hostname").unwrap();
-
-            if let Err(e) = mythic_beasts::dynamic_dns(host, username, password) {
-                log::error!("{}", e);
-                process::exit(exitcode::UNAVAILABLE);
-            }
-
-            return ();
-        },
         ("update", Some(u)) => {
             let records: Vec<mythic_beasts::Record> = match u.values_of("records") {
                 Some(rcds) => process_dns_records(rcds.map(|ln| ln.to_string())),
@@ -294,27 +293,6 @@ mod mythic_beasts {
         pub _template: Option<bool>,
     }
 
-
-    pub fn dynamic_dns(host: &str, username: &str, password: Option<&str>) -> Result<(), Box<dyn Error>> {
-        let endpoint = format!("{}/dynamic/{}", API_URL, host);
-        let response = reqwest::blocking::Client::new()
-            .put(&endpoint)
-            .basic_auth(username, password)
-            .send()?;
-
-        let text = response.text()?;
-        log::trace!("Received response: {}", &text);
-
-        let result: ApiResponse = serde_json::from_str(&text)?;
-
-        if let Some(e) = result.error {
-            return Err(format!("Unable to use ddns feature. Reason: {}", e).into());
-        }
-        
-        log::info!("{}", result.message.unwrap());
-
-        Ok(())
-    }
 
     pub fn build_api_endpoint(app: &ArgMatches, filter: Option<&str>) -> String {
         let mut endpoint = format!("{}/zones", API_URL);
