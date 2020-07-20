@@ -146,7 +146,7 @@ fn main() {
     let subcommand = match app.subcommand() {
         ("ddns", Some(ddns)) => provider.dynamic_dns(ddns),
         // ("update", Some(update)) => Ok(println!("update subcommand")),
-        // ("delete", Some(_delete)) => Ok(println!("delete subcommand")),
+        ("delete", Some(delete)) => provider.delete(delete),
         _ => Ok(false),
     };
 
@@ -207,18 +207,6 @@ fn main() {
                 Ok((added, removed)) => {
                     log::info!("Updated record(s)!");
                     log::debug!("Added {} record(s). Removed {} record(s)", added, removed);
-                    return ();
-                },
-                Err(e) => {
-                    log::error!("{}", e);
-                    process::exit(exitcode::UNAVAILABLE);
-                },
-            }
-        },
-        ("delete", Some(_d)) => {
-            match mythic_beasts::delete(&app, username, password) {
-                Ok(r) => {
-                    log::info!("Deleted {} record(s)", r);
                     return ();
                 },
                 Err(e) => {

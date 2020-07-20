@@ -161,4 +161,5 @@ impl Provider for MythicBeasts {
 
         Ok(result.records)
     }
+
 }
