@@ -59,6 +59,31 @@ impl MythicBeasts {
 
         Ok(credential[0].clone())
     }
+
+    fn build_api_endpoint(app: &ArgMatches, filter: Option<&str>) -> String {
+        let mut endpoint = format!("{}/zones", API_URL);
+
+        if app.is_present("zone") {
+            let zone = app.value_of("zone").unwrap();
+            endpoint.push_str(&format!("/{}/records", zone));
+        }
+
+        if app.is_present("host") {
+            let host = app.value_of("host").unwrap();
+            endpoint.push_str(&format!("/{}", host));
+        }
+
+        if app.is_present("type") {
+            let r#type = app.value_of("type").unwrap();
+            endpoint.push_str(&format!("/{}", r#type));
+        }
+
+        if let Some(f) = filter {
+            endpoint.push_str(&format!("?{}", f));
+        }
+
+        endpoint
+    }
 }
 
 
@@ -110,23 +135,30 @@ impl Provider for MythicBeasts {
         Ok(true)
     }
 
-    // pub fn search(argm: &ArgMatches, username: &str, password: Option<&str>) -> Result<Option<Vec<Record>> {
-        // let url = build_api_endpoint(argm, None);
-        // let response = reqwest::blocking::Client::new()
-            // .get(&url)
-            // .basic_auth(username, password)
-            // .send()?;
+    fn search(&self, argm: &ArgMatches) -> Result<Option<Vec<Record>>> {
+        let url = MythicBeasts::build_api_endpoint(argm, None);
 
-        // let text = response.text()?;
-        // log::trace!("Received response: {}", &text);
+        let zone = argm.value_of("zone").expect("DNS search requires at least a zone to start from");
+        let host = argm.value_of("host");
+        let rtype = argm.value_of("type");
+        let credentials = self.get_credential(zone, host, rtype)?;
 
-        // let result: ApiResponse = serde_json::from_str(&text)?;
-        // log::trace!("{:#?}", result);
+        let response = reqwest::blocking::Client::new()
+            .get(&url)
+            .basic_auth(credentials.user, Some(credentials.pass))
+            .send()?;
 
-        // if let Some(e) = result.error {
-            // return Err(format!("Unable to get search results. Reason: {}", e).into());
-        // }
+        let text = response.text()?;
+        log::trace!("Received response: {}", &text);
 
-        // Ok(result.records)
-    // }
+        let result: ApiResponse = serde_json::from_str(&text)?;
+        log::trace!("{:#?}", result);
+
+        if let Some(e) = result.error {
+            return Err(ProviderError::new(ProviderErrorKind::DnsApiError)
+                .msg(format!("Unable to get search results. Reason: {}", e)));
+        }
+
+        Ok(result.records)
+    }
 }

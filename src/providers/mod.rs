@@ -79,7 +79,7 @@ pub trait Provider: fmt::Debug {
     fn get_name(&self) -> String;
     fn set_credentials(&mut self, c: config::Credentials);
     fn dynamic_dns(&self, argm: &ArgMatches) -> Result<bool>;
-    // fn search();
+    fn search(&self, argm: &ArgMatches) -> Result<Option<Vec<Record>>>;
     // fn update();
     // fn delete();
 }
