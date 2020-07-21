@@ -7,21 +7,8 @@ use std::error;
 use serde::{Serialize, Deserialize};
 use clap::{ArgMatches};
 
-// impl Provider {
-    // pub fn from_config(&self, c: config::Configuration) -> Provider {
-        // let creds: config::Credentials = c
-            // .credentials
-            // .into_iter()
-            // .filter(|cred| cred.provider == self.name)
-            // .collect();
 
-        // Provider {
-            // name: self.name.clone(),
-            // credentials: Some(creds),
-        // }
-    // }
-// }
-
+/// A DNS record structure
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Record {
     pub host: String,
@@ -56,6 +43,7 @@ pub struct Record {
     pub _template: Option<bool>,
 }
 
+/// Initialize provider based on the providers' name-id (e.g mythic-beasts)
 pub fn init_provider(name: &str) -> Box<dyn Provider> {
     match name {
         "mythic-beasts" => mythic_beasts::MythicBeasts::new(),
@@ -63,6 +51,7 @@ pub fn init_provider(name: &str) -> Box<dyn Provider> {
     }
 }
 
+/// Get (filter) a provider credentials from configuration
 pub fn get_provider_credentials(provider: &Box<dyn Provider>, c: config::Configuration) -> config::Credentials {
     let creds: config::Credentials = c
     .credentials
