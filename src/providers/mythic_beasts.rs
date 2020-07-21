@@ -32,6 +32,13 @@ impl MythicBeasts {
     }
 
     fn get_credential(&self, zone: &str, host: Option<&str>, r#type: Option<&str>) -> Result<config::Credential> {
+        // We either have one authentication credential configured -OR- user has used user-pass approach
+        if let Some(credential) = &self.credentials {
+            if credential.len() == 1 {
+                return Ok(credential[0].clone());
+            }
+        }
+
         let credential_filter = |c: &&config::Credential| -> bool {
             let host_check = match host {
                 None => c.host == None,
@@ -46,7 +53,9 @@ impl MythicBeasts {
             c.zone == Some(zone.to_string()) && host_check && rtype_check
         };
 
-        let credential: config::Credentials = self.credentials.as_ref().unwrap()
+        let credential: config::Credentials = self.credentials
+            .as_ref()
+            .unwrap_or(&vec![])
             .iter()
             .filter(credential_filter)
             // .inspect(|i| println!("item that passed the filter: {:?}", i))
