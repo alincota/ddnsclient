@@ -20,8 +20,11 @@ pub struct Configuration {
 
 
 impl Configuration {
-    // fn new() -> Configuration {
-    // }
+    pub fn new() -> Self {
+        Configuration {
+            credentials: vec![],
+        }
+    }
 
     pub fn from_path(path: &str) -> Configuration {
         let config_contents = fs::read_to_string(path).expect("Unable to read config file!");
@@ -30,6 +33,3 @@ impl Configuration {
         config
     }
 }
-
-
-

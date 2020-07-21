@@ -8,7 +8,7 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
-use config::Configuration;
+use config::{Configuration, Credential};
 use providers::*;
 
 use std::process;
@@ -46,12 +46,12 @@ fn main() {
             .number_of_values(1)
             .help("The record type (e.g A, AAAA, MX, CNAME, TXT)")
         )
-
-        // todo: replace username and pass with the config file (yaml)
         .arg(Arg::with_name("username")
             .short("u")
             .long("username")
             .required(true)
+            .required_unless("config-path")
+            .env("DNSAPICLIENT_USER")
             .takes_value(true)
             .number_of_values(1)
             .help("Authentication username")
@@ -59,14 +59,19 @@ fn main() {
         .arg(Arg::with_name("password")
             .short("p")
             .long("password")
+            .required(true)
+            .required_unless("config-path")
             .takes_value(true)
             .number_of_values(1)
+            .env("DNSAPICLIENT_PASS")
             .help("Authentication password")
         )
         .arg(Arg::with_name("config-path")
             .short("c")
             .long("config")
             .required(true)
+            .required_unless("username")
+            .conflicts_with_all(&["username", "password"])
             .takes_value(true)
             .number_of_values(1)
             .help("Path to the YAML configuration file.")
@@ -87,6 +92,7 @@ fn main() {
 
         .subcommand(SubCommand::with_name("ddns")
             .about("Create or update an A or AAAA record with the specified hostname, with the data set to the IP address of the client using the API.")
+            // TODO: support this style as well - more user friendly
             // .arg(Arg::with_name("hostname")
                 // .required(true)
                 // .takes_value(true)
@@ -118,12 +124,24 @@ fn main() {
     };
     simple_logger::init_with_level(log_level).expect("Unable to initialise the logger!");
 
-    let config_path = app.value_of("config-path").unwrap();
-    let config = Configuration::from_path(config_path);
-
-    let username = app.value_of("username").unwrap();
-    let password = app.value_of("password");
     let provider = app.value_of("provider").expect("Unable to establish which provider to use");
+
+    let mut config = Configuration::new();
+    if let Some(config_path) = app.value_of("config-path") {
+        config = Configuration::from_path(config_path);
+    }
+    if app.is_present("username") && app.is_present("password") {
+        config = Configuration {
+            credentials: vec![Credential {
+                provider: provider.to_string(),
+                user: app.value_of("username").unwrap().to_string(),
+                pass: app.value_of("password").unwrap().to_string(),
+                zone: None,
+                host: None,
+                r#type: None,
+            }],
+        };
+    }
 
     let mut provider = providers::init_provider(provider);
     provider.set_credentials(get_provider_credentials(&provider, config));
