@@ -11,9 +11,6 @@ extern crate serde_json;
 use config::Configuration;
 use providers::*;
 
-use std::error::Error; // used for get_my_public_ip()
-use std::net::IpAddr; // used for get_my_public_ip()
-use std::str::FromStr; // used for get_my_public_ip()
 use std::process;
 use std::io;
 use std::io::prelude::*;
@@ -124,14 +121,6 @@ fn main() {
     let config_path = app.value_of("config-path").unwrap();
     let config = Configuration::from_path(config_path);
 
-    // First check the IP of the client
-    /* let ip = get_my_public_ip(); */
-    // if let Err(e) = ip {
-        // log::error!("{}", e);
-        // process::exit(exitcode::UNAVAILABLE);
-    // }
-    /* let ip = ip.unwrap(); */
-
     let username = app.value_of("username").unwrap();
     let password = app.value_of("password");
     let provider = app.value_of("provider").expect("Unable to establish which provider to use");
@@ -199,86 +188,7 @@ fn main() {
 }
 
 
-
-mod mythic_beasts {
-    use std::error::Error;
-    // use std::net::IpAddr; // used for get_my_public_ip()
-    use serde::{Serialize, Deserialize};
-    use clap::{ArgMatches};
-
-    const API_URL: &str = "https://api.mythic-beasts.com/dns/v2";
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct ApiResponse {
-        pub error: Option<String>,
-        pub errors: Option<Vec<String>>,
-        pub message: Option<String>,
-        pub records_added: Option<u32>,
-        pub records_removed: Option<u32>,
-        pub records: Option<Vec<Record>>,
-    }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct Record {
-        pub host: String,
-        pub ttl: u32,
-        pub r#type: String,
-        pub data: String,
-
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub mx_priority: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub srv_priority: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub srv_weight: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub srv_port: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub sshfp_algorithm: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub sshfp_type: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub caa_flags: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub caa_property: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub tlsa_usage: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub tlsa_selector: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub tlsa_matching: Option<u32>,
-
-        #[serde(skip)]
-        pub _template: Option<bool>,
-    }
-
-
-    pub fn build_api_endpoint(app: &ArgMatches, filter: Option<&str>) -> String {
-        let mut endpoint = format!("{}/zones", API_URL);
-
-        if app.is_present("zone") {
-            let zone = app.value_of("zone").unwrap();
-            endpoint.push_str(&format!("/{}/records", zone));
-        }
-
-        if app.is_present("host") {
-            let host = app.value_of("host").unwrap();
-            endpoint.push_str(&format!("/{}", host));
-        }
-
-        if app.is_present("type") {
-            let r#type = app.value_of("type").unwrap();
-            endpoint.push_str(&format!("/{}", r#type));
-        }
-
-        if let Some(f) = filter {
-            endpoint.push_str(&format!("?{}", f));
-        }
-
-        endpoint
-    }
-}
-
+/// Process DNS records utility function
 fn process_dns_records<I>(strings: I) -> Vec<providers::Record> where I: IntoIterator<Item = String> + std::fmt::Debug {
     let mut dns_records: Vec<providers::Record> = Vec::new();
 
@@ -291,23 +201,4 @@ fn process_dns_records<I>(strings: I) -> Vec<providers::Record> where I: IntoIte
     }
 
     dns_records
-}
-
-
-#[allow(dead_code)]
-fn get_my_public_ip() -> Result<IpAddr, Box<dyn Error>> {
-    let opendns_ip = reqwest::blocking::get("https://diagnostic.opendns.com/myip")?.text()?;
-    let ipify_ip = reqwest::blocking::get("https://api6.ipify.org")?.text()?;
-
-    let opendns_ip = IpAddr::from_str(&opendns_ip)?;
-    let ipify_ip = IpAddr::from_str(&ipify_ip)?;
-
-    log::debug!("OpenDNS IPAddr: {:?}", opendns_ip);
-    log::debug!("IPify IP: {:?}", ipify_ip);
-
-    if opendns_ip != ipify_ip {
-        return Err("OpenDNS and IPify services responded with different IPs.".into());
-    }
-
-    Ok(opendns_ip)
 }
