@@ -1,0 +1,5 @@
+---
+credentials:
+    - {provider: mythic-beasts, user: your_user,  pass: your_pass,   zone: domain.tld,}
+    # - {provider: mythic-beasts, user: your_user,  pass: your_pass,   zone: domain.tld,    host: host,}
+    # - {provider: mythic-beasts, user: your_user,  pass: your_pass,   zone: domain.tld,    host: host,    type: A,}
